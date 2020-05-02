@@ -18,6 +18,9 @@ This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS O
 #include "bouncer.h"
 #include <usual/pgutil.h>
 
+extern char *cf_rewrite_query_py_module_file;
+extern char *cf_rewrite_query_disconnect_on_failure;
+
 /* private function prototypes */
 char *call_python_rewrite_query(PgSocket *client, char *query_str);
 void printHex(void *buffer, const unsigned int n);
@@ -119,7 +122,12 @@ bool rewrite_query(PgSocket *client, PktHdr *pkt) {
 	remaining_buffer_ptr = query_str + strlen(query_str) + 1;
 	remaining_buffer_len = (char *) &sbuf->io->buf[sbuf->io->recv_pos]
 			- remaining_buffer_ptr;
-	memcpy(&new_io_buf[i], remaining_buffer_ptr, remaining_buffer_len);
+	// GLR-START
+	if ( remaining_buffer_len > 0 ) {
+	    memcpy(&new_io_buf[i], remaining_buffer_ptr, remaining_buffer_len);
+        }
+	//memcpy(&new_io_buf[i], remaining_buffer_ptr, remaining_buffer_len);
+	// GLR-END
 	i += remaining_buffer_len;
 	/* replace original buffer with new buffer */
 	memcpy(sbuf->io->buf, new_io_buf, i);
@@ -161,10 +169,10 @@ bool handle_incomplete_packet(PgSocket *client, PktHdr *pkt) {
 			slog_error(client, "Increase buffer size in config (pkt_buf) to contain the maximum sized query");
 			slog_error(client, "rewrite_query_disconnect_on_failure = %s", cf_rewrite_query_disconnect_on_failure);
 			return handle_failure(client);
-		} else {
-			/* there is room in the buffer - let's wait for rest of packet */
-			slog_warning(client, "Wait for rest of packet to arrive");
-			return false;
+//		} else {
+//			/* there is room in the buffer - let's wait for rest of packet */
+//			slog_warning(client, "Wait for rest of packet to arrive");
+//			return false;
 		}
 	}
 	return true;
